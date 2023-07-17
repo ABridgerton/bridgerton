@@ -1,3 +1,6 @@
 [submodule "academy-bridger/lib/forge-std"]
 	path = academy-bridger/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "academy-bridger/lib/solmate"]
+	path = academy-bridger/lib/solmate
+	url = https://github.com/transmissions11/solmate
