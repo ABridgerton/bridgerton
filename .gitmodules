@@ -4,3 +4,6 @@
 [submodule "academy-bridger/lib/solmate"]
 	path = academy-bridger/lib/solmate
 	url = https://github.com/transmissions11/solmate
+[submodule "academy-bridger/lib/openzeppelin-contracts"]
+	path = academy-bridger/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
