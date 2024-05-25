@@ -11,10 +11,22 @@ contract Bridgerton {
     WrappedABridgerToken public wrappedToken;
     mapping(address => uint256) public lockedBalance;
 
-    event LockTokens(address user, uint256 amount);
-    event UnlockTokens(address user, uint256 amount);
-    event MintWrappedToken(address user, uint256 amount);
-    event BurnWrappedToken(address user, uint256 amount);
+    event LockTokens(address indexed user, uint256 amount);
+    event UnlockTokens(
+        address indexed user,
+        uint256 amount,
+        address indexed admin
+    );
+    event MintWrappedToken(
+        address indexed user,
+        uint256 amount,
+        address indexed admin
+    );
+    event BurnWrappedToken(
+        address indexed user,
+        uint256 amount,
+        address indexed admin
+    );
 
     constructor(address _mainToken, address _wrappedToken) {
         admin = msg.sender;
@@ -27,7 +39,26 @@ contract Bridgerton {
         _;
     }
 
-    function lockTokens(uint256 _amount) external {
+    modifier sufficientBalance(address _user, uint256 _amount) {
+        require(lockedBalance[_user] >= _amount, "Insufficient locked balance");
+        _;
+    }
+
+    modifier nonZeroAmount(uint256 _amount) {
+        require(_amount > 0, "Amount must be greater than zero");
+        _;
+    }
+
+    function lockTokens(uint256 _amount) external nonZeroAmount(_amount) {
+        require(
+            mainToken.allowance(msg.sender, address(this)) >= _amount,
+            "Allowance not set or insufficient"
+        );
+        require(
+            mainToken.balanceOf(msg.sender) >= _amount,
+            "Insufficient token balance"
+        );
+
         lockedBalance[msg.sender] += _amount;
         require(
             mainToken.transferFrom(msg.sender, address(this), _amount),
@@ -37,36 +68,54 @@ contract Bridgerton {
         emit LockTokens(msg.sender, _amount);
     }
 
-    function unlockTokens(address _user, uint256 _amount) external onlyAdmin {
+    function unlockTokens(
+        address _user,
+        uint256 _amount
+    )
+        external
+        onlyAdmin
+        sufficientBalance(_user, _amount)
+        nonZeroAmount(_amount)
+    {
         lockedBalance[_user] -= _amount;
         require(mainToken.transfer(_user, _amount), "Transfer failed");
 
-        emit UnlockTokens(msg.sender, _amount);
+        emit UnlockTokens(_user, _amount, msg.sender);
     }
 
     function mintWrappedTokens(
         address _user,
         uint256 _amount
-    ) external onlyAdmin {
-        WrappedABridgerToken(address(wrappedToken)).mint(_user, _amount);
+    ) external onlyAdmin nonZeroAmount(_amount) {
+        require(_user != address(0), "Cannot mint to zero address");
 
-        emit MintWrappedToken(_user, _amount);
+        wrappedToken.mint(_user, _amount);
+
+        emit MintWrappedToken(_user, _amount, msg.sender);
     }
 
     function burnWrappedTokens(
         address _user,
         uint256 _amount
-    ) external onlyAdmin {
+    ) external onlyAdmin nonZeroAmount(_amount) {
+        require(_user != address(0), "Invalid user address");
+        require(
+            wrappedToken.allowance(_user, address(this)) >= _amount,
+            "Allowance not set or insufficient"
+        );
+        require(
+            wrappedToken.balanceOf(_user) >= _amount,
+            "Insufficient wrapped token balance"
+        );
+
         require(
             wrappedToken.transferFrom(_user, address(this), _amount),
             "Transfer failed"
         );
-        WrappedABridgerToken(address(wrappedToken)).burn(
-            address(this),
-            _amount
-        );
 
-        emit BurnWrappedToken(_user, _amount);
+        wrappedToken.burn(address(this), _amount);
+
+        emit BurnWrappedToken(_user, _amount, msg.sender);
     }
 
     function getLockedBalance(address _user) external view returns (uint256) {
