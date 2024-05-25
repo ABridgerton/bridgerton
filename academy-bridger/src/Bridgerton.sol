@@ -4,8 +4,9 @@ pragma solidity ^0.8.17;
 import "../lib/openzeppelin-contracts/contracts/token/erc20/IERC20.sol";
 import {ABridgerToken} from "./ABridgerToken.sol";
 import {WrappedABridgerToken} from "./WrappedABridgerToken.sol";
+import {IBridgerton} from "./interfaces/IBridgerton.sol";
 
-contract Bridgerton {
+contract Bridgerton is IBridgerton {
     address public admin;
     ABridgerToken public mainToken;
     WrappedABridgerToken public wrappedToken;
