@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity 0.8.20;
 
 import "../lib/openzeppelin-contracts/contracts/token/erc20/IERC20.sol";
 import {ABridgerToken} from "./ABridgerToken.sol";
@@ -13,21 +13,9 @@ contract Bridgerton is IBridgerton {
     mapping(address => uint256) public lockedBalance;
 
     event LockTokens(address indexed user, uint256 amount);
-    event UnlockTokens(
-        address indexed user,
-        uint256 amount,
-        address indexed admin
-    );
-    event MintWrappedToken(
-        address indexed user,
-        uint256 amount,
-        address indexed admin
-    );
-    event BurnWrappedToken(
-        address indexed user,
-        uint256 amount,
-        address indexed admin
-    );
+    event UnlockTokens(address indexed user, uint256 amount, address indexed admin);
+    event MintWrappedToken(address indexed user, uint256 amount, address indexed admin);
+    event BurnWrappedToken(address indexed user, uint256 amount, address indexed admin);
 
     constructor(address _mainToken, address _wrappedToken) {
         admin = msg.sender;
@@ -51,28 +39,16 @@ contract Bridgerton is IBridgerton {
     }
 
     function lockTokens(uint256 _amount) external nonZeroAmount(_amount) {
-        require(
-            mainToken.allowance(msg.sender, address(this)) >= _amount,
-            "Allowance not set or insufficient"
-        );
-        require(
-            mainToken.balanceOf(msg.sender) >= _amount,
-            "Insufficient token balance"
-        );
+        require(mainToken.allowance(msg.sender, address(this)) >= _amount, "Allowance not set or insufficient");
+        require(mainToken.balanceOf(msg.sender) >= _amount, "Insufficient token balance");
 
         lockedBalance[msg.sender] += _amount;
-        require(
-            mainToken.transferFrom(msg.sender, address(this), _amount),
-            "Transfer failed"
-        );
+        require(mainToken.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
 
         emit LockTokens(msg.sender, _amount);
     }
 
-    function unlockTokens(
-        address _user,
-        uint256 _amount
-    )
+    function unlockTokens(address _user, uint256 _amount)
         external
         onlyAdmin
         sufficientBalance(_user, _amount)
@@ -84,10 +60,7 @@ contract Bridgerton is IBridgerton {
         emit UnlockTokens(_user, _amount, msg.sender);
     }
 
-    function mintWrappedTokens(
-        address _user,
-        uint256 _amount
-    ) external onlyAdmin nonZeroAmount(_amount) {
+    function mintWrappedTokens(address _user, uint256 _amount) external onlyAdmin nonZeroAmount(_amount) {
         require(_user != address(0), "Cannot mint to zero address");
 
         wrappedToken.mint(_user, _amount);
@@ -95,24 +68,12 @@ contract Bridgerton is IBridgerton {
         emit MintWrappedToken(_user, _amount, msg.sender);
     }
 
-    function burnWrappedTokens(
-        address _user,
-        uint256 _amount
-    ) external onlyAdmin nonZeroAmount(_amount) {
+    function burnWrappedTokens(address _user, uint256 _amount) external onlyAdmin nonZeroAmount(_amount) {
         require(_user != address(0), "Invalid user address");
-        require(
-            wrappedToken.allowance(_user, address(this)) >= _amount,
-            "Allowance not set or insufficient"
-        );
-        require(
-            wrappedToken.balanceOf(_user) >= _amount,
-            "Insufficient wrapped token balance"
-        );
+        require(wrappedToken.allowance(_user, address(this)) >= _amount, "Allowance not set or insufficient");
+        require(wrappedToken.balanceOf(_user) >= _amount, "Insufficient wrapped token balance");
 
-        require(
-            wrappedToken.transferFrom(_user, address(this), _amount),
-            "Transfer failed"
-        );
+        require(wrappedToken.transferFrom(_user, address(this), _amount), "Transfer failed");
 
         wrappedToken.burn(address(this), _amount);
 
