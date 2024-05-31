@@ -17,10 +17,13 @@ contract Bridgerton is IBridgerton {
     event MintWrappedToken(address indexed user, uint256 amount, address indexed admin);
     event BurnWrappedToken(address indexed user, uint256 amount, address indexed admin);
 
-    constructor(address _mainToken, address _wrappedToken) {
+    constructor(address _mainTokenAddress) {
         admin = msg.sender;
-        mainToken = ABridgerToken(_mainToken);
-        wrappedToken = WrappedABridgerToken(_wrappedToken);
+        if (_mainTokenAddress != address(0)) {
+            mainToken = ABridgerToken(_mainTokenAddress);
+        }
+
+        wrappedToken = new WrappedABridgerToken();
     }
 
     modifier onlyAdmin() {
@@ -39,6 +42,7 @@ contract Bridgerton is IBridgerton {
     }
 
     function lockTokens(uint256 _amount) external nonZeroAmount(_amount) {
+        require(address(mainToken) != address(0), "MainToken not initialized");
         require(mainToken.allowance(msg.sender, address(this)) >= _amount, "Allowance not set or insufficient");
         require(mainToken.balanceOf(msg.sender) >= _amount, "Insufficient token balance");
 
@@ -54,8 +58,10 @@ contract Bridgerton is IBridgerton {
         sufficientBalance(_user, _amount)
         nonZeroAmount(_amount)
     {
-        lockedBalance[_user] -= _amount;
+        require(address(mainToken) != address(0), "MainToken not initialized");
+
         require(mainToken.transfer(_user, _amount), "Transfer failed");
+        lockedBalance[_user] -= _amount;
 
         emit UnlockTokens(_user, _amount, msg.sender);
     }
