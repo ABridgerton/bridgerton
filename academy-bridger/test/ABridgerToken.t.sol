@@ -14,12 +14,6 @@ contract ABridgerTokenTest is Test {
     function setUp() public {
         owner = msg.sender;
         token = new ABridgerToken();
-
-        token.mint(user, mintAmount);
-    }
-
-    function test_initialBalance() public {
-        assertEq(token.balanceOf(user), mintAmount);
     }
 
     function test_mint() public {
@@ -28,6 +22,7 @@ contract ABridgerTokenTest is Test {
     }
 
     function test_burn() public {
+        token.mint(user, mintAmount);
         token.burn(user, burnAmount);
         assertEq(token.balanceOf(user), burnAmount);
     }

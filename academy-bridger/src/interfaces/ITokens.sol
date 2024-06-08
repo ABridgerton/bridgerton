@@ -7,7 +7,7 @@ interface IABridgerToken {
     function burn(address from, uint256 amount) external;
 }
 
-interface IWrappedABridgerToken {
+interface IWrappedToken {
     function mint(address to, uint256 amount) external;
 
     function burn(address from, uint256 amount) external;

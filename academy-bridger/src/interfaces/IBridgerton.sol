@@ -2,13 +2,11 @@
 pragma solidity 0.8.20;
 
 interface IBridgerton {
-    function lockTokens(uint256 _amount) external;
+    function lockTokens(address sourceToken, uint256 amount) external;
 
-    function unlockTokens(address _user, uint256 _amount) external;
+    function mintWrappedTokens(address sourceToken, address to, uint256 amount) external;
 
-    function mintWrappedTokens(address _user, uint256 _amount) external;
+    function burnWrappedTokens(address wrappedToken, address from, uint256 amount) external;
 
-    function burnWrappedTokens(address _user, uint256 _amount) external;
-
-    function getLockedBalance(address _user) external view returns (uint256);
+    function releaseTokens(address sourceToken, address to, uint256 amount) external;
 }

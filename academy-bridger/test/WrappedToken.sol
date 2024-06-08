@@ -2,10 +2,10 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import {WrappedABridgerToken} from "../src/WrappedABridgerToken.sol";
+import {WrappedToken} from "../src/WrappedToken.sol";
 
-contract WrappedABridgerTokenTest is Test {
-    WrappedABridgerToken private token;
+contract WrappedTokenTest is Test {
+    WrappedToken private token;
     address private owner;
     address private user = address(1);
     uint256 mintAmount = 1000;
@@ -13,13 +13,7 @@ contract WrappedABridgerTokenTest is Test {
 
     function setUp() public {
         owner = msg.sender;
-        token = new WrappedABridgerToken();
-
-        token.mint(user, mintAmount);
-    }
-
-    function test_initialBalance() public {
-        assertEq(token.balanceOf(user), mintAmount);
+        token = new WrappedToken("Wrapped Token", "WTK");
     }
 
     function test_mint() public {
@@ -28,6 +22,7 @@ contract WrappedABridgerTokenTest is Test {
     }
 
     function test_burn() public {
+        token.mint(user, mintAmount);
         token.burn(user, burnAmount);
         assertEq(token.balanceOf(user), burnAmount);
     }

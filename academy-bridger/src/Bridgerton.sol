@@ -1,38 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../lib/openzeppelin-contracts/contracts/token/erc20/IERC20.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/erc20/IERC20.sol";
+import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
+
 import {ABridgerToken} from "./ABridgerToken.sol";
-import {WrappedABridgerToken} from "./WrappedABridgerToken.sol";
+import {WrappedToken} from "./WrappedToken.sol";
 import {IBridgerton} from "./interfaces/IBridgerton.sol";
 
-contract Bridgerton is IBridgerton {
+contract Bridgerton is IBridgerton, Pausable {
     address public admin;
-    ABridgerToken public mainToken;
-    WrappedABridgerToken public wrappedToken;
-    mapping(address => uint256) public lockedBalance;
+    mapping(address => address) public sourceToWrappedToken;
 
     event LockTokens(address indexed user, uint256 amount);
-    event UnlockTokens(address indexed user, uint256 amount);
-    event MintWrappedToken(address indexed user, uint256 amount);
-    event BurnWrappedToken(address indexed user, uint256 amount);
+    event MintWrappedTokens(address indexed user, uint256 amount);
+    event BurnWrappedTokens(address indexed user, uint256 amount);
+    event ReleaseTokens(address indexed user, uint256 amount);
 
-    constructor(address _mainTokenAddress) {
+    constructor() {
         admin = msg.sender;
-        if (_mainTokenAddress != address(0)) {
-            mainToken = ABridgerToken(_mainTokenAddress);
-        }
-
-        wrappedToken = new WrappedABridgerToken();
     }
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can call this function");
-        _;
-    }
-
-    modifier sufficientBalance(address _user, uint256 _amount) {
-        require(lockedBalance[_user] >= _amount, "Insufficient locked balance");
         _;
     }
 
@@ -41,53 +31,63 @@ contract Bridgerton is IBridgerton {
         _;
     }
 
-    function lockTokens(uint256 _amount) external nonZeroAmount(_amount) {
-        require(address(mainToken) != address(0), "MainToken not initialized");
-
-        require(mainToken.allowance(msg.sender, address(this)) >= _amount, "Allowance not set or insufficient");
-        require(mainToken.balanceOf(msg.sender) >= _amount, "Insufficient token balance");
-
-        lockedBalance[msg.sender] += _amount;
-        require(mainToken.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-
-        emit LockTokens(msg.sender, _amount);
+    function pause() external onlyAdmin {
+        _pause();
     }
 
-    function unlockTokens(address _user, uint256 _amount)
+    function unpause() external onlyAdmin {
+        _unpause();
+    }
+
+    function lockTokens(address sourceToken, uint256 amount) external whenNotPaused nonZeroAmount(amount) {
+        ABridgerToken(sourceToken).transferFrom(msg.sender, address(this), amount);
+
+        emit LockTokens(msg.sender, amount);
+    }
+
+    function mintWrappedTokens(address sourceToken, address to, uint256 amount)
         external
         onlyAdmin
-        sufficientBalance(_user, _amount)
-        nonZeroAmount(_amount)
+        whenNotPaused
+        nonZeroAmount(amount)
     {
-        require(address(mainToken) != address(0), "MainToken not initialized");
+        address wrappedToken = sourceToWrappedToken[sourceToken];
+        if (wrappedToken == address(0)) {
+            string memory originalName = ABridgerToken(sourceToken).name();
+            string memory originalSymbol = ABridgerToken(sourceToken).symbol();
 
-        lockedBalance[_user] -= _amount;
-        require(mainToken.transfer(_user, _amount), "Transfer failed");
+            string memory wrappedName = string(abi.encodePacked("Wrapped", originalName));
+            string memory wrappedSymbol = string(abi.encodePacked("W", originalSymbol));
 
-        emit UnlockTokens(_user, _amount);
+            WrappedToken newWrappedToken = new WrappedToken(wrappedName, wrappedSymbol);
+            wrappedToken = address(newWrappedToken);
+            sourceToWrappedToken[sourceToken] = wrappedToken;
+        }
+
+        WrappedToken(wrappedToken).mint(to, amount);
+
+        emit MintWrappedTokens(to, amount);
     }
 
-    function mintWrappedTokens(address _user, uint256 _amount) external onlyAdmin nonZeroAmount(_amount) {
-        require(_user != address(0), "Cannot mint to zero address");
+    function burnWrappedTokens(address wrappedToken, address from, uint256 amount)
+        external
+        onlyAdmin
+        whenNotPaused
+        nonZeroAmount(amount)
+    {
+        WrappedToken(wrappedToken).burn(from, amount);
 
-        wrappedToken.mint(_user, _amount);
-
-        emit MintWrappedToken(_user, _amount);
+        emit BurnWrappedTokens(from, amount);
     }
 
-    function burnWrappedTokens(address _user, uint256 _amount) external onlyAdmin nonZeroAmount(_amount) {
-        require(_user != address(0), "Invalid user address");
-        require(wrappedToken.allowance(_user, address(this)) >= _amount, "Allowance not set or insufficient");
-        require(wrappedToken.balanceOf(_user) >= _amount, "Insufficient wrapped token balance");
+    function releaseTokens(address sourceToken, address to, uint256 amount)
+        external
+        onlyAdmin
+        whenNotPaused
+        nonZeroAmount(amount)
+    {
+        require(ABridgerToken(sourceToken).transfer(to, amount), "Token transfer failed");
 
-        require(wrappedToken.transferFrom(_user, address(this), _amount), "Transfer failed");
-
-        wrappedToken.burn(address(this), _amount);
-
-        emit BurnWrappedToken(_user, _amount);
-    }
-
-    function getLockedBalance(address _user) external view returns (uint256) {
-        return lockedBalance[_user];
+        emit ReleaseTokens(to, amount);
     }
 }
